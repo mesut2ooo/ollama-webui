@@ -407,7 +407,7 @@ document.getElementById('max-tokens').addEventListener('change', (e) => {
 // System prompt modal
 systemBtn.addEventListener('click', () => {
     systemTextarea.value = systemPrompt;
-    systemModal.style.display = 'block';
+    systemModal.style.display = 'flex';
 });
 systemClose.addEventListener('click', () => {
     systemModal.style.display = 'none';
@@ -418,11 +418,12 @@ saveSystemBtn.addEventListener('click', () => {
 });
 window.addEventListener('click', (e) => {
     if (e.target === systemModal) systemModal.style.display = 'none';
+    if (e.target === uploadModal) uploadModal.style.display = 'none';
 });
 
 // Upload modal
 uploadBtn.addEventListener('click', () => {
-    uploadModal.style.display = 'block';
+    uploadModal.style.display = 'flex';
     filePreviews.innerHTML = '';
 });
 uploadClose.addEventListener('click', () => {
