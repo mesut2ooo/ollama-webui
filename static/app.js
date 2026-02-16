@@ -37,6 +37,67 @@ const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const filePreviews = document.getElementById('file-previews');
 
+// static/app.js - Add after the state declarations
+
+// Load saved settings from localStorage
+function loadSettings() {
+    const savedSettings = localStorage.getItem('ollamaSettings');
+    if (savedSettings) {
+        try {
+            const settings = JSON.parse(savedSettings);
+            temperature = settings.temperature ?? 0.7;
+            topP = settings.topP ?? 0.9;
+            maxTokens = settings.maxTokens ?? 2048;
+            systemPrompt = settings.systemPrompt ?? '';
+            
+            // Update UI elements
+            tempSlider.value = temperature;
+            tempSpan.textContent = temperature.toFixed(1);
+            topPSlider.value = topP;
+            topPSpan.textContent = topP.toFixed(2);
+            maxTokensInput.value = maxTokens;
+            systemTextarea.value = systemPrompt;
+        } catch (e) {
+            console.error('Failed to load settings', e);
+        }
+    }
+}
+
+// Save settings to localStorage
+function saveSettings() {
+    const settings = {
+        temperature,
+        topP,
+        maxTokens,
+        systemPrompt
+    };
+    localStorage.setItem('ollamaSettings', JSON.stringify(settings));
+}
+
+// Update existing event listeners to save settings
+tempSlider.addEventListener('input', () => {
+    temperature = parseFloat(tempSlider.value);
+    tempSpan.textContent = temperature.toFixed(1);
+    saveSettings();
+});
+
+topPSlider.addEventListener('input', () => {
+    topP = parseFloat(topPSlider.value);
+    topPSpan.textContent = topP.toFixed(2);
+    saveSettings();
+});
+
+maxTokensInput.addEventListener('change', (e) => {
+    maxTokens = parseInt(e.target.value, 10);
+    saveSettings();
+});
+
+saveSystemBtn.addEventListener('click', () => {
+    systemPrompt = systemTextarea.value;
+    systemModal.style.display = 'none';
+    saveSettings();
+});
+
 // Load models on startup
 async function loadModels() {
     try {
@@ -493,3 +554,4 @@ function highlightCodeBlocks(container) {
 // Initial load
 loadModels();
 loadConversations();
+loadSettings(); // Add this line
