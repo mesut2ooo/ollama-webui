@@ -37,6 +37,8 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
+/* static/style.css - Complete sidebar section */
+
 /* Sidebar */
 .sidebar {
     width: 280px;
@@ -47,16 +49,17 @@ body {
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     color: #e0e0e0;
     transition: all 0.3s ease;
-    height: calc(100vh - 32px); /* Full height minus padding */
+    height: calc(100vh - 32px);
     max-height: calc(100vh - 32px);
-    overflow: hidden; /* Prevent sidebar itself from scrolling */
+    overflow: hidden;
+    flex-shrink: 0;
 }
 
-/* New Chat Button */
+/* New Chat Button - fixed at top */
 .new-chat {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -71,7 +74,8 @@ body {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
+    margin-bottom: 0.5rem;
 }
 
 .new-chat:hover {
@@ -81,33 +85,42 @@ body {
 
 /* Conversations List Container - this will scroll */
 .conversations-list {
-    flex: 1;
+    flex: 1 1 auto;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    padding-right: 4px;
-    min-height: 0; /* Important for flex child scrolling */
+    padding-right: 6px;
+    min-height: 0; /* CRITICAL: allows flex item to shrink below content size */
+    max-height: none; /* Remove any max-height constraints */
 }
 
+/* Ensure the container takes available space but allows scrolling */
+.conversations-list:empty {
+    display: none;
+}
+
+/* Custom scrollbar for conversations list */
 .conversations-list::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
 }
 
 .conversations-list::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.02);
-    border-radius: 4px;
+    border-radius: 10px;
 }
 
 .conversations-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
 }
 
 .conversations-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.25);
 }
 
+/* Conversation Item */
 .conversation-item {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 10px;
@@ -116,13 +129,12 @@ body {
     cursor: pointer;
     border: 1px solid rgba(255, 255, 255, 0.05);
     transition: all 0.2s ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    width: 100%;
+    flex-shrink: 0; /* Prevent items from shrinking */
 }
 
 .conversation-item:hover {
@@ -136,6 +148,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0; /* Allows text truncation to work */
 }
 
 /* Delete conversation button */
@@ -153,19 +166,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0; /* Prevent button from shrinking */
 }
 
 .conversation-item:hover .delete-conv-btn {
-    opacity: 1;
-}
-
-/* Active conversation highlight */
-.conversation-item.active {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.15);
-}
-
-.conversation-item.active .delete-conv-btn {
     opacity: 1;
 }
 
@@ -189,8 +193,9 @@ body {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-top: auto;
     flex-shrink: 0;
+    margin-top: 0.5rem;
+    width: 100%;
 }
 
 .delete-all-btn:hover {
@@ -205,7 +210,17 @@ body {
     fill: currentColor;
 }
 
-/* Main Panel */
+/* Active conversation highlight */
+.conversation-item.active {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.conversation-item.active .delete-conv-btn {
+    opacity: 1;
+}
+
+/* Ensure the main content area doesn't interfere */
 .main {
     flex: 1;
     display: flex;
@@ -216,6 +231,7 @@ body {
     border-radius: 20px;
     overflow: hidden;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    min-width: 0; /* Prevents flex items from overflowing */
 }
 
 /* Top Bar */
@@ -847,11 +863,12 @@ body {
     .sidebar {
         width: 100%;
         height: auto;
-        max-height: 180px;
+        max-height: 300px;
+        min-height: 200px;
     }
     
     .conversations-list {
-        max-height: 120px;
+        max-height: calc(300px - 120px); /* Account for buttons */
     }
     
     .top-bar {
