@@ -184,7 +184,7 @@ async function sendMessage() {
 
     // Start streaming
     isGenerating = true;
-    sendBtn.textContent = '⏹️';
+    sendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="6" y="6" width="12" height="12"/></svg>';
     sendBtn.classList.add('stop');
 
     abortController = new AbortController();
@@ -267,7 +267,7 @@ async function sendMessage() {
         }
     } finally {
         isGenerating = false;
-        sendBtn.textContent = 'Send';
+        sendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
         sendBtn.classList.remove('stop');
         abortController = null;
         // Auto-save conversation
@@ -280,7 +280,7 @@ function stopGeneration() {
     if (abortController) {
         abortController.abort();
         isGenerating = false;
-        sendBtn.textContent = 'Send';
+        sendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
         sendBtn.classList.remove('stop');
         // Optionally notify backend
         fetch('/stop', { method: 'POST' });
