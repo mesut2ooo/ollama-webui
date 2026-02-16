@@ -5,6 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ollama Web UI</title>
+    <!-- Add Prism.js for better code highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-html.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -32,7 +39,16 @@
                 </div>
                 <div class="param-control">
                     <label>Max tokens</label>
-                    <input type="number" id="max-tokens" min="1" max="32000" value="2048">
+                    <select id="max-tokens" class="token-select">
+                        <option value="2048">2K</option>
+                        <option value="4096">4K</option>
+                        <option value="8192">8K</option>
+                        <option value="32768">32K</option>
+                        <option value="65536">64K</option>
+                        <option value="131072">128K</option>
+                        <option value="262144">256K</option>
+                        <option value="524288">512K</option>
+                    </select>
                 </div>
                 <button id="system-prompt-btn">System</button>
                 <button id="upload-btn">📎</button>

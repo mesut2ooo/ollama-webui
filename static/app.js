@@ -4,7 +4,7 @@ let messages = [];
 let currentModel = '';
 let temperature = 0.7;
 let topP = 0.9;
-let maxTokens = 2048;
+let maxTokens = 2048; // Default 2K
 let systemPrompt = '';
 let uploadedFiles = [];
 let isGenerating = false;
@@ -108,50 +108,116 @@ async function saveConversation() {
 // Render messages with markdown and code highlighting
 function renderMessages() {
     messagesDiv.innerHTML = '';
+    
     messages.forEach(msg => {
         const messageEl = document.createElement('div');
         messageEl.className = `message ${msg.role}`;
+        
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        // Simple markdown: paragraphs, code blocks
+        
+        // Parse markdown
         let html = simpleMarkdown(msg.content);
         contentDiv.innerHTML = html;
+        
         // Add copy buttons to code blocks
         contentDiv.querySelectorAll('pre').forEach(pre => {
             const btn = document.createElement('button');
             btn.className = 'copy-btn';
             btn.textContent = 'Copy';
             btn.onclick = () => {
-                navigator.clipboard.writeText(pre.innerText);
+                const code = pre.querySelector('code') || pre;
+                navigator.clipboard.writeText(code.innerText || code.textContent);
                 btn.textContent = 'Copied!';
                 setTimeout(() => btn.textContent = 'Copy', 2000);
             };
             pre.style.position = 'relative';
             pre.appendChild(btn);
         });
+        
         messageEl.appendChild(contentDiv);
         messagesDiv.appendChild(messageEl);
     });
+    
+    // Apply Prism.js highlighting if available
+    if (typeof Prism !== 'undefined') {
+        Prism.highlightAll();
+    }
+    
     // Scroll to bottom
-    document.querySelector('.chat-area').scrollTop = document.querySelector('.chat-area').scrollHeight;
+    const chatArea = document.querySelector('.chat-area');
+    if (chatArea) {
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
 }
 
 // Very basic markdown parser (bold, italic, code blocks, inline code)
 function simpleMarkdown(text) {
-    // Escape HTML
+    if (!text) return '';
+    
+    // First, escape HTML to prevent XSS
     text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    // Code blocks ```lang\ncode```
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-        return `<pre><code class="language-${lang}">${escapeHtml(code)}</code></pre>`;
+    
+    // Code blocks ```lang\ncode``` - with proper language support
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, language, code) => {
+        const lang = language || 'plaintext';
+        // Don't escape code inside pre tags as Prism will handle it
+        return `<pre><code class="language-${lang}">${code}</code></pre>`;
     });
+    
     // Inline code `code`
-    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+    text = text.replace(/`([^`]+)`/g, '<code class="language-plaintext">$1</code>');
+    
+    // Headers
+    text = text.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    text = text.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    text = text.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    
     // Bold **text**
     text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    
     // Italic *text*
     text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    // Newlines to <br>
-    text = text.replace(/\n/g, '<br>');
+    
+    // Lists
+    text = text.replace(/^\s*\*\s(.*$)/gim, '<li>$1</li>');
+    text = text.replace(/^\s*-\s(.*$)/gim, '<li>$1</li>');
+    text = text.replace(/^\s*\d+\.\s(.*$)/gim, '<li>$1</li>');
+    
+    // Wrap lists
+    text = text.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    
+    // Links [text](url)
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // Blockquotes
+    text = text.replace(/^\>\s(.*$)/gim, '<blockquote>$1</blockquote>');
+    
+    // Horizontal rule
+    text = text.replace(/^\s*---\s*$/gim, '<hr>');
+    
+    // Paragraphs - wrap text not in block elements
+    const lines = text.split('\n');
+    let inBlock = false;
+    let result = [];
+    
+    for (let line of lines) {
+        // Check if line starts with HTML tag
+        if (line.trim().startsWith('<') && !line.trim().startsWith('<br>')) {
+            inBlock = true;
+            result.push(line);
+        } else if (inBlock && line.trim() === '') {
+            inBlock = false;
+            result.push(line);
+        } else if (!inBlock && line.trim() !== '') {
+            result.push(`<p>${line}</p>`);
+        } else {
+            result.push(line);
+        }
+    }
+    
+    text = result.join('\n');
+    
     return text;
 }
 
@@ -228,11 +294,13 @@ async function sendMessage() {
                             // Append token to last assistant message
                             const last = messages[messages.length - 1];
                             last.content += parsed.token;
+
                             // Update UI efficiently: find last message element
                             const lastMsgDiv = messagesDiv.lastElementChild;
                             if (lastMsgDiv) {
                                 const contentDiv = lastMsgDiv.querySelector('.message-content');
                                 contentDiv.innerHTML = simpleMarkdown(last.content);
+                                
                                 // Add copy button to any new code blocks
                                 contentDiv.querySelectorAll('pre').forEach(pre => {
                                     if (!pre.querySelector('.copy-btn')) {
@@ -240,7 +308,8 @@ async function sendMessage() {
                                         btn.className = 'copy-btn';
                                         btn.textContent = 'Copy';
                                         btn.onclick = () => {
-                                            navigator.clipboard.writeText(pre.innerText);
+                                            const code = pre.querySelector('code') || pre;
+                                            navigator.clipboard.writeText(code.innerText || code.textContent);
                                             btn.textContent = 'Copied!';
                                             setTimeout(() => btn.textContent = 'Copy', 2000);
                                         };
@@ -248,10 +317,20 @@ async function sendMessage() {
                                         pre.appendChild(btn);
                                     }
                                 });
+                                
+                                // Re-highlight code blocks in this message
+                                if (typeof Prism !== 'undefined') {
+                                    contentDiv.querySelectorAll('pre code').forEach((block) => {
+                                        Prism.highlightElement(block);
+                                    });
+                                }
                             }
+
                             // Auto-scroll
                             const chatArea = document.querySelector('.chat-area');
-                            chatArea.scrollTop = chatArea.scrollHeight;
+                            if (chatArea) {
+                                chatArea.scrollTop = chatArea.scrollHeight;
+                            }
                         }
                     } catch (e) {
                         console.warn('Failed to parse chunk', e);
@@ -320,8 +399,9 @@ topPSlider.addEventListener('input', () => {
     topP = parseFloat(topPSlider.value);
     topPSpan.textContent = topP.toFixed(2);
 });
-maxTokensInput.addEventListener('change', () => {
-    maxTokens = parseInt(maxTokensInput.value, 10) || 2048;
+
+document.getElementById('max-tokens').addEventListener('change', (e) => {
+    maxTokens = parseInt(e.target.value, 10);
 });
 
 // System prompt modal
@@ -399,6 +479,15 @@ newChatBtn.addEventListener('click', () => {
 modelSelect.addEventListener('change', () => {
     currentModel = modelSelect.value;
 });
+
+// Function to manually trigger Prism highlighting on new content
+function highlightCodeBlocks(container) {
+    if (typeof Prism !== 'undefined') {
+        container.querySelectorAll('pre code').forEach((block) => {
+            Prism.highlightElement(block);
+        });
+    }
+}
 
 // Initial load
 loadModels();
