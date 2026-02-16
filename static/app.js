@@ -128,6 +128,7 @@ async function loadConversations() {
     for (const f of files) {
         const div = document.createElement('div');
         div.className = 'conversation-item';
+        div.dataset.filename = f;
         
         // Try to load the conversation to get its name
         try {
@@ -137,13 +138,56 @@ async function loadConversations() {
                 body: JSON.stringify({filename: f})
             });
             const conv = await convRes.json();
-            div.textContent = conv.name || generateChatName(conv.messages || []) || f;
+            
+            // Create name span
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'conv-name';
+            nameSpan.textContent = conv.name || generateChatName(conv.messages || []) || 'New Chat';
+            
+            // Create delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-conv-btn';
+            deleteBtn.innerHTML = '×';
+            deleteBtn.title = 'Delete conversation';
+            deleteBtn.onclick = (e) => deleteConversation(f, e);
+            
+            div.appendChild(nameSpan);
+            div.appendChild(deleteBtn);
+            
+            // Add click handler for loading conversation
+            div.addEventListener('click', (e) => {
+                // Don't load if clicking the delete button
+                if (!e.target.classList.contains('delete-conv-btn')) {
+                    // Remove active class from all items
+                    document.querySelectorAll('.conversation-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    div.classList.add('active');
+                    loadConversation(f);
+                }
+            });
+            
         } catch (e) {
             // Fallback to filename
-            div.textContent = f.replace(/^conv_|\.json$/g, '').replace(/_/g, ' ');
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'conv-name';
+            nameSpan.textContent = f.replace(/^conv_|\.json$/g, '').replace(/_/g, ' ');
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-conv-btn';
+            deleteBtn.innerHTML = '×';
+            deleteBtn.onclick = (e) => deleteConversation(f, e);
+            
+            div.appendChild(nameSpan);
+            div.appendChild(deleteBtn);
+            
+            div.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('delete-conv-btn')) {
+                    loadConversation(f);
+                }
+            });
         }
         
-        div.addEventListener('click', () => loadConversation(f));
         conversationsList.appendChild(div);
     }
 }
@@ -212,6 +256,58 @@ async function saveConversation() {
     });
     loadConversations(); // refresh list
 }
+
+// Delete a single conversation
+async function deleteConversation(filename, event) {
+    event.stopPropagation(); // Prevent triggering the load conversation
+    
+    if (!confirm('Are you sure you want to delete this conversation?')) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({filename})
+        });
+        
+        if (res.ok) {
+            // If the deleted conversation is currently loaded, clear it
+            const currentConvFile = document.querySelector('.conversation-item.active')?.dataset.filename;
+            if (currentConvFile === filename) {
+                messages = [];
+                renderMessages();
+            }
+            loadConversations(); // Refresh the list
+        }
+    } catch (e) {
+        console.error('Failed to delete conversation', e);
+    }
+}
+
+// Delete all conversations
+async function deleteAllConversations() {
+    if (!confirm('Are you sure you want to delete ALL conversations? This cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/delete-all', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        
+        if (res.ok) {
+            messages = [];
+            renderMessages();
+            loadConversations(); // Refresh the list
+        }
+    } catch (e) {
+        console.error('Failed to delete all conversations', e);
+    }
+}
+
 
 // Render messages with markdown and code highlighting
 function renderMessages() {
@@ -511,6 +607,9 @@ topPSlider.addEventListener('input', () => {
 document.getElementById('max-tokens').addEventListener('change', (e) => {
     maxTokens = parseInt(e.target.value, 10);
 });
+
+// Add delete all button event listener
+document.getElementById('delete-all-btn').addEventListener('click', deleteAllConversations);
 
 // System prompt modal
 systemBtn.addEventListener('click', () => {

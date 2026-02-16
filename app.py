@@ -173,5 +173,31 @@ def upload_file():
         file.save(filepath)
         return jsonify({'filename': unique_name, 'original': filename})
 
+# Route: delete a single conversation
+@app.route('/delete', methods=['POST'])
+def delete_conversation():
+    data = request.json
+    filename = data.get('filename')
+    if not filename:
+        return jsonify({'error': 'Filename missing'}), 400
+    
+    filepath = os.path.join(app.config['CONVERSATIONS_FOLDER'], filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        return jsonify({'status': 'deleted'})
+    return jsonify({'error': 'File not found'}), 404
+
+# Route: delete all conversations
+@app.route('/delete-all', methods=['POST'])
+def delete_all_conversations():
+    try:
+        for filename in os.listdir(app.config['CONVERSATIONS_FOLDER']):
+            if filename.endswith('.json'):
+                filepath = os.path.join(app.config['CONVERSATIONS_FOLDER'], filename)
+                os.remove(filepath)
+        return jsonify({'status': 'all deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
