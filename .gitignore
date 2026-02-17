@@ -1,1 +1,7 @@
-conversations/
+# Python build artifacts
+dist/
+mallama.egg-info/
+
+# Local folders you don't want on GitHub
+mallama/conversations/
+
