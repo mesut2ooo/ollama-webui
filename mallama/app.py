@@ -15,8 +15,8 @@ app = Flask(__name__,
            static_folder=os.path.join(BASE_DIR, 'static'))
 
 # Use user directory for data storage
-app.config['UPLOAD_FOLDER'] = os.path.expanduser("~/.ollama-webui/uploads")
-app.config['CONVERSATIONS_FOLDER'] = os.path.expanduser("~/.ollama-webui/conversations")
+app.config['UPLOAD_FOLDER'] = os.path.expanduser("~/.mallama/uploads")
+app.config['CONVERSATIONS_FOLDER'] = os.path.expanduser("~/.mallama/conversations")
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB limit
 
 # Ensure directories exist

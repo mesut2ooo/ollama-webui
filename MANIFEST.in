@@ -1,5 +1,5 @@
 include README.md
 include LICENSE
 include requirements.txt
-recursive-include ollama_webui/templates *
-recursive-include ollama_webui/static *
+recursive-include mallama/templates *
+recursive-include mallama/static *

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Main entry point for the ollama-webui package.
+Main entry point for the mallama package.
 """
 import os
 import sys
@@ -33,12 +33,12 @@ def main():
     print("Press Ctrl+C to stop")
     
     # Create necessary directories
-    os.makedirs(os.path.expanduser("~/.ollama-webui/conversations"), exist_ok=True)
-    os.makedirs(os.path.expanduser("~/.ollama-webui/uploads"), exist_ok=True)
+    os.makedirs(os.path.expanduser("~/.mallama/conversations"), exist_ok=True)
+    os.makedirs(os.path.expanduser("~/.mallama/uploads"), exist_ok=True)
     
     # Update app config to use user directory
-    app.config['UPLOAD_FOLDER'] = os.path.expanduser("~/.ollama-webui/uploads")
-    app.config['CONVERSATIONS_FOLDER'] = os.path.expanduser("~/.ollama-webui/conversations")
+    app.config['UPLOAD_FOLDER'] = os.path.expanduser("~/.mallama/uploads")
+    app.config['CONVERSATIONS_FOLDER'] = os.path.expanduser("~/.mallama/conversations")
     
     app.run(debug=args.debug, host=args.host, port=args.port)
 
