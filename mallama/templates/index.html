@@ -1,99 +1,1413 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ollama Web UI</title>
-    <!-- Add Prism.js for better code highlighting -->
-    <link rel="stylesheet" href="/static/prism.css">
-    <script src="/static/prism.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>mallama · glass chat</title>
+    <!-- Font Awesome 6 (free) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Markdown renderer + syntax highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            height: 100vh;
+            background: linear-gradient(145deg, #0b0f17 0%, #1a1f2e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            overflow: hidden;
+        }
+
+        /* glassmorphic app container */
+        .app-container {
+            width: 100%;
+            max-width: 1600px;
+            height: 100%;
+            max-height: 98vh;
+            background: rgba(20, 25, 40, 0.6);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 36px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        /* ---------- SIDEBAR (CHAT HISTORY) ---------- */
+        .sidebar {
+            width: 280px;
+            background: rgba(12, 15, 25, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .sidebar.collapsed {
+            width: 0px;
+            min-width: 0px;
+        }
+
+        .sidebar-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 280px;
+            padding: 20px 12px;
+        }
+
+        /* new chat button / header */
+        .new-chat-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 30px;
+            padding: 12px 18px;
+            color: #eef2fb;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 28px;
+            transition: 0.15s;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+        .new-chat-btn:hover {
+            background: rgba(80, 100, 180, 0.25);
+            border-color: rgba(120, 160, 255, 0.3);
+        }
+
+        .new-chat-btn i {
+            font-size: 1.1rem;
+            color: #7b9cff;
+        }
+
+        /* history list container */
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 4px;
+        }
+
+        /* scroll beauty */
+        .history-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .history-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 20px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(2px);
+            transition: all 0.1s;
+            cursor: pointer;
+            color: #cdd6f0;
+            font-size: 0.9rem;
+        }
+
+        .history-item:hover {
+            background: rgba(50, 70, 120, 0.3);
+            border-color: rgba(110, 150, 255, 0.25);
+        }
+
+        .history-item .chat-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+        }
+
+        .history-item .delete-single {
+            background: transparent;
+            border: none;
+            color: #a0b0d0;
+            font-size: 1rem;
+            padding: 4px 8px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .history-item .delete-single:hover {
+            background: rgba(220, 70, 90, 0.3);
+            color: #ffa0a5;
+        }
+
+        /* sidebar footer (settings + delete all) */
+        .sidebar-footer {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 16px;
+        }
+
+        .footer-btn {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 40px;
+            padding: 12px 16px;
+            color: #e0e8ff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .footer-btn:hover {
+            background: rgba(70, 100, 200, 0.2);
+        }
+
+        .footer-btn i {
+            width: 22px;
+            color: #7b9cff;
+        }
+
+        /* ---------- MAIN CHAT AREA ---------- */
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: transparent;
+            position: relative;
+            min-width: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* top bar with burger + model selector */
+        .top-bar {
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            flex-shrink: 0;
+        }
+
+        .burger {
+            font-size: 1.6rem;
+            color: #b0c6ff;
+            cursor: pointer;
+            background: rgba(255,255,255,0.02);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: 0.1s;
+            z-index: 101;
+        }
+
+        .burger:hover {
+            background: rgba(120, 160, 255, 0.15);
+        }
+
+        .model-selector {
+            background: rgba(20, 30, 50, 0.6);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 60px;
+            padding: 10px 20px;
+            color: #d3e0ff;
+            font-weight: 500;
+            outline: none;
+            backdrop-filter: blur(8px);
+            cursor: pointer;
+            min-width: 160px;
+        }
+
+        .model-selector option {
+            background: #141c2b;
+        }
+
+        /* messages container */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px 8px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-height: 0;
+            height: 100%;
+        }
+
+        .message {
+            display: flex;
+            max-width: 85%;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .message.user {
+            align-self: flex-end;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+        }
+
+        .bubble {
+            padding: 16px 20px;
+            border-radius: 28px;
+            background: rgba(30, 35, 55, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.03);
+            color: #f0f4ff;
+            line-height: 1.5;
+            font-size: 0.98rem;
+            box-shadow: 0 8px 20px -8px rgba(0,0,0,0.5);
+            word-break: break-word;
+        }
+
+        .message.user .bubble {
+            background: rgba(65, 90, 180, 0.4);
+            border: 1px solid rgba(140, 170, 255, 0.25);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .message.assistant .bubble {
+            background: rgba(25, 30, 45, 0.7);
+            border-bottom-left-radius: 6px;
+        }
+
+        /* markdown content */
+        .bubble pre {
+            background: #0d1422;
+            border-radius: 16px;
+            padding: 14px;
+            overflow-x: auto;
+            margin: 12px 0 0;
+            position: relative;
+        }
+
+        .bubble code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .bubble p {
+            margin: 0 0 8px 0;
+        }
+
+        .bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            color: white;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: 0.1s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(100, 140, 255, 0.3);
+        }
+
+        /* typing indicator */
+        .typing-indicator {
+            display: flex;
+            gap: 6px;
+            padding: 16px 20px;
+            background: rgba(40, 45, 65, 0.5);
+            border-radius: 40px;
+            width: fit-content;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .typing-indicator span {
+            width: 10px;
+            height: 10px;
+            background: #9bb2ff;
+            border-radius: 50%;
+            opacity: 0.6;
+            animation: blink 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); background: #ccdbff; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* bottom input area */
+        .input-area {
+            padding: 20px 24px 24px 24px;
+            background: transparent;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            background: rgba(15, 20, 32, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            padding: 6px 6px 6px 24px;
+            transition: border 0.1s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: rgba(140, 180, 255, 0.4);
+        }
+
+        .message-input {
+            background: transparent;
+            border: none;
+            color: #f0f4ff;
+            font-size: 1rem;
+            width: 100%;
+            outline: none;
+            padding: 14px 0;
+            resize: none;
+            max-height: 120px;
+            line-height: 1.4;
+        }
+
+        .message-input::placeholder {
+            color: #7f8bb0;
+        }
+
+        .action-btn {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            width: 48px;
+            height: 48px;
+            border-radius: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a7bcff;
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: 0.1s;
+            flex-shrink: 0;
+        }
+
+        .action-btn:hover {
+            background: rgba(90, 130, 250, 0.3);
+            border-color: rgba(140, 180, 255, 0.3);
+            color: white;
+        }
+
+        .action-btn.send-active {
+            background: #3860d0;
+            color: white;
+            border-color: #6b96ff;
+        }
+
+        .action-btn.stop-active {
+            background: #a04040;
+            color: white;
+            border-color: #d06f6f;
+        }
+
+        .attach-btn {
+            font-size: 1.3rem;
+        }
+
+        /* settings modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .modal-overlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .settings-modal {
+            background: rgba(25, 30, 45, 0.95);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 48px;
+            width: 450px;
+            max-width: 90vw;
+            padding: 32px;
+            color: #f0f4ff;
+            box-shadow: 0 40px 70px -10px black;
+        }
+
+        .settings-modal h2 {
+            font-weight: 400;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .setting-row {
+            margin-bottom: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .setting-row label {
+            font-size: 0.9rem;
+            color: #b6c6ff;
+            letter-spacing: 0.3px;
+        }
+
+        .setting-row input, .setting-row select, .setting-row textarea {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 30px;
+            padding: 12px 18px;
+            color: white;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .setting-row input[type="range"] {
+            padding: 0;
+        }
+
+        .setting-row textarea {
+            border-radius: 24px;
+            resize: vertical;
+        }
+
+        .modal-close {
+            background: #3860d0;
+            border: none;
+            color: white;
+            padding: 14px;
+            width: 100%;
+            border-radius: 40px;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+
+        /* upload preview */
+        #file-previews {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .preview-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .preview-item img {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        /* mobile backdrop */
+        #sidebar-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+            backdrop-filter: blur(3px);
+        }
+
+        /* mobile adjustments */
+        @media (max-width: 700px) {
+            body {
+                padding: 0;
+            }
+            
+            .app-container { 
+                border-radius: 0; 
+                height: 100vh;
+                max-height: 100vh;
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .sidebar { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                bottom: 0; 
+                z-index: 1000; 
+                width: 260px;
+                transition: transform 0.25s ease;
+                transform: translateX(0);
+                box-shadow: 5px 0 30px rgba(0,0,0,0.5);
+                border-radius: 0;
+            }
+            
+            .sidebar.collapsed { 
+                transform: translateX(-100%);
+            }
+            
+            .burger {
+                z-index: 1001;
+                background: rgba(20, 25, 40, 0.8);
+                backdrop-filter: blur(8px);
+            }
+            
+            .message { 
+                max-width: 90%; 
+            }
+            
+            .top-bar {
+                padding: 16px;
+            }
+            
+            .input-area {
+                padding: 16px;
+            }
+            
+            .messages-container {
+                padding: 16px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div class="app">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <button id="new-chat" class="new-chat">+ New Chat</button>
-            <div class="conversations-list" id="conversations-list">
-                <!-- populated by js -->
+<div class="app-container">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <div class="new-chat-btn" id="newChatBtn">
+                <i class="fas fa-pen-to-square"></i> New chat
             </div>
-            <button id="delete-all-btn" class="delete-all-btn">
-                <svg viewBox="0 0 24 24" width="16" height="16">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                </svg>
-                Delete All Chats
-            </button>
-        </aside>
-
-        <!-- Main panel -->
-        <main class="main">
-            <!-- Top bar -->
-            <header class="top-bar">
-                <select id="model-select" class="model-select"></select>
-                <div class="param-control">
-                    <label>Temp <span id="temp-value">0.7</span></label>
-                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
-                </div>
-                <div class="param-control">
-                    <label>Top-p <span id="topp-value">0.9</span></label>
-                    <input type="range" id="top-p" min="0" max="1" step="0.05" value="0.9">
-                </div>
-                <div class="param-control">
-                    <label>Max tokens</label>
-                    <select id="max-tokens" class="token-select">
-                        <option value="2048">2K</option>
-                        <option value="4096">4K</option>
-                        <option value="8192">8K</option>
-                        <option value="32768">32K</option>
-                        <option value="65536">64K</option>
-                        <option value="131072">128K</option>
-                        <option value="262144">256K</option>
-                        <option value="524288">512K</option>
-                    </select>
-                </div>
-                <button id="system-prompt-btn">System</button>
-                <button id="upload-btn">📎</button>
-            </header>
-
-            <!-- Chat messages area -->
-            <div class="chat-area" id="chat-area">
-                <div class="messages" id="messages"></div>
+            <div class="history-list" id="historyList">
+                <!-- dynamic chat items go here -->
             </div>
-
-            <!-- Input area -->
-            <div class="input-area" id="input-area">
-                <textarea id="user-input" placeholder="Type your message... (Shift+Enter for new line)" rows="1"></textarea>
-                <button id="send-btn" class="send-btn">
-                    <svg viewBox="0 0 24 24" width="20" height="20">
-                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                    </svg>
-                </button>
+            <div class="sidebar-footer">
+                <div class="footer-btn" id="settingsBtn">
+                    <i class="fas fa-sliders-h"></i> Settings
+                </div>
+                <div class="footer-btn" id="deleteAllBtn">
+                    <i class="fas fa-trash-alt"></i> Delete all chats
+                </div>
             </div>
-        </main>
-    </div>
+        </div>
+    </aside>
 
-    <!-- System prompt modal -->
-    <div id="system-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>System Prompt</h3>
-            <textarea id="system-prompt-text" rows="6" placeholder="Enter system prompt..."></textarea>
-            <button id="save-system">Save</button>
+    <!-- MAIN CHAT PANEL -->
+    <div class="main-panel">
+        <div class="top-bar">
+            <div class="burger" id="burgerBtn"><i class="fas fa-bars"></i></div>
+            <select class="model-selector" id="modelSelect"></select>
+        </div>
+
+        <div class="messages-container" id="messagesContainer">
+            <!-- messages appear here -->
+        </div>
+
+        <!-- bottom bar -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea class="message-input" id="messageInput" rows="1" placeholder="Message mallama..."></textarea>
+                <label for="fileUpload" class="action-btn attach-btn" style="margin-right: 4px;"><i class="fas fa-paperclip"></i></label>
+                <input type="file" id="fileUpload" style="display: none;" multiple>
+            </div>
+            <div class="action-btn" id="sendStopBtn">
+                <i class="fas fa-paper-plane" id="sendIcon"></i>
+                <i class="fas fa-stop" id="stopIcon" style="display: none;"></i>
+            </div>
         </div>
     </div>
+</div>
 
-    <!-- Upload preview modal -->
-    <div id="upload-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-upload">&times;</span>
-            <h3>Upload Files</h3>
-            <div id="drop-zone" class="drop-zone">Drag & drop files here or click to select</div>
-            <input type="file" id="file-input" multiple style="display:none;">
-            <div id="file-previews" class="file-previews"></div>
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+    <div class="settings-modal">
+        <h2><i class="fas fa-sliders-h"></i> Parameters</h2>
+        <div class="setting-row">
+            <label>System prompt</label>
+            <textarea id="systemPrompt" rows="3" placeholder="You are a helpful assistant..."></textarea>
         </div>
+        <div class="setting-row">
+            <label>Temperature (<span id="tempValue">0.7</span>)</label>
+            <input type="range" id="temperature" step="0.1" min="0" max="2" value="0.7">
+        </div>
+        <div class="setting-row">
+            <label>Top P (<span id="topPValue">0.9</span>)</label>
+            <input type="range" id="topP" step="0.05" min="0" max="1" value="0.9">
+        </div>
+        <div class="setting-row">
+            <label>Max tokens</label>
+            <select id="maxTokens">
+                <option value="2048" selected>2k</option>
+                <option value="4096">4k</option>
+                <option value="8192">8k</option>
+                <option value="16384">16k</option>
+                <option value="32768">32k</option>
+                <option value="65536">64k</option>
+                <option value="131072">128k</option>
+                <option value="262144">256k</option>
+                <option value="524288">512k</option>
+            </select>
+        </div>
+        <button class="modal-close" id="closeSettingsBtn">Done</button>
     </div>
+</div>
 
-    <script src="/static/app.js"></script>
+<!-- UPLOAD MODAL (hidden by default, can be shown via attach) -->
+<div class="modal-overlay" id="uploadModal">
+    <div class="settings-modal" style="width: 500px;">
+        <h2><i class="fas fa-upload"></i> Upload files</h2>
+        <div class="setting-row">
+            <div id="dropZone" style="border:2px dashed rgba(255,255,255,0.2); border-radius:30px; padding:40px; text-align:center; cursor:pointer;">
+                <i class="fas fa-cloud-upload-alt" style="font-size:2rem; margin-bottom:10px;"></i>
+                <p>Drag files here or click to browse</p>
+            </div>
+            <input type="file" id="fileInput" multiple style="display: none;">
+        </div>
+        <div id="filePreviews"></div>
+        <button class="modal-close" id="closeUploadBtn" style="margin-top:20px;">Done</button>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ------ globals ------
+        let messages = [];
+        let currentModel = '';
+        let models = [];
+        let conversationsList = [];
+        let isGenerating = false;
+        let abortController = null;
+        let uploadedFiles = [];
+
+        // Settings
+        let systemPrompt = '';
+        let temperature = 0.7;
+        let topP = 0.9;
+        let maxTokens = 2048;
+
+        // UI elements
+        const sidebar = document.getElementById('sidebar');
+        const burger = document.getElementById('burgerBtn');
+        const modelSelect = document.getElementById('modelSelect');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendStopBtn = document.getElementById('sendStopBtn');
+        const sendIcon = document.getElementById('sendIcon');
+        const stopIcon = document.getElementById('stopIcon');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const historyList = document.getElementById('historyList');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const deleteAllBtn = document.getElementById('deleteAllBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const systemPromptArea = document.getElementById('systemPrompt');
+        const tempSlider = document.getElementById('temperature');
+        const tempValue = document.getElementById('tempValue');
+        const topPSlider = document.getElementById('topP');
+        const topPValue = document.getElementById('topPValue');
+        const maxTokensSelect = document.getElementById('maxTokens');
+        const fileUpload = document.getElementById('fileUpload');
+        const uploadModal = document.getElementById('uploadModal');
+        const closeUploadBtn = document.getElementById('closeUploadBtn');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const filePreviews = document.getElementById('filePreviews');
+
+        // Load saved settings from localStorage
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('mallamaSettings');
+            if (savedSettings) {
+                try {
+                    const settings = JSON.parse(savedSettings);
+                    temperature = settings.temperature ?? 0.7;
+                    topP = settings.topP ?? 0.9;
+                    maxTokens = settings.maxTokens ?? 2048;
+                    systemPrompt = settings.systemPrompt ?? '';
+                    
+                    // Update UI elements
+                    tempSlider.value = temperature;
+                    tempValue.textContent = temperature.toFixed(1);
+                    topPSlider.value = topP;
+                    topPValue.textContent = topP.toFixed(2);
+                    maxTokensSelect.value = maxTokens;
+                    systemPromptArea.value = systemPrompt;
+                } catch (e) {
+                    console.error('Failed to load settings', e);
+                }
+            }
+        }
+
+        // Save settings to localStorage
+        function saveSettings() {
+            const settings = {
+                temperature,
+                topP,
+                maxTokens,
+                systemPrompt
+            };
+            localStorage.setItem('mallamaSettings', JSON.stringify(settings));
+        }
+
+        // Generate a chat name from the first user message
+        function generateChatName(messages) {
+            const firstUserMsg = messages.find(msg => msg.role === 'user');
+            if (!firstUserMsg) return 'New Chat';
+            
+            const content = firstUserMsg.content.trim();
+            if (!content) return 'New Chat';
+            
+            let name = content.length > 30 ? content.substring(0, 30) + '...' : content;
+            name = name.replace(/\s+/g, ' ').trim();
+            return name;
+        }
+
+        // Render messages with markdown
+        function renderMessages() {
+            messagesContainer.innerHTML = '';
+            
+            messages.forEach((msg, idx) => {
+                const messageEl = document.createElement('div');
+                messageEl.className = `message ${msg.role}`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                
+                if (msg.content) {
+                    // Use marked for markdown rendering
+                    let html = marked.parse(msg.content);
+                    bubble.innerHTML = html;
+                    
+                    // Add copy buttons to code blocks
+                    bubble.querySelectorAll('pre').forEach(pre => {
+                        if (!pre.querySelector('.copy-btn')) {
+                            const btn = document.createElement('button');
+                            btn.className = 'copy-btn';
+                            btn.textContent = 'Copy';
+                            btn.onclick = () => {
+                                const code = pre.querySelector('code') || pre;
+                                navigator.clipboard.writeText(code.innerText || code.textContent);
+                                btn.textContent = 'Copied!';
+                                setTimeout(() => btn.textContent = 'Copy', 2000);
+                            };
+                            pre.style.position = 'relative';
+                            pre.appendChild(btn);
+                        }
+                    });
+                    
+                    // Highlight code
+                    bubble.querySelectorAll('pre code').forEach(block => {
+                        hljs.highlightElement(block);
+                    });
+                } else {
+                    bubble.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+                }
+                
+                messageEl.appendChild(bubble);
+                messagesContainer.appendChild(messageEl);
+            });
+            
+            // Scroll to bottom smoothly
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Update streaming content efficiently
+        function updateStreamingContent(token) {
+            if (messages.length === 0) return;
+            
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg.role !== 'assistant') return;
+            
+            lastMsg.content += token;
+            
+            // Update the last message bubble directly
+            const lastMsgDiv = messagesContainer.lastElementChild;
+            if (lastMsgDiv) {
+                const bubble = lastMsgDiv.querySelector('.bubble');
+                if (bubble) {
+                    // Remove typing indicator if present
+                    if (bubble.querySelector('.typing-indicator')) {
+                        bubble.innerHTML = '';
+                    }
+                    
+                    // Update with new content
+                    let html = marked.parse(lastMsg.content);
+                    bubble.innerHTML = html;
+                    
+                    // Add copy buttons
+                    bubble.querySelectorAll('pre').forEach(pre => {
+                        if (!pre.querySelector('.copy-btn')) {
+                            const btn = document.createElement('button');
+                            btn.className = 'copy-btn';
+                            btn.textContent = 'Copy';
+                            btn.onclick = () => {
+                                const code = pre.querySelector('code') || pre;
+                                navigator.clipboard.writeText(code.innerText || code.textContent);
+                                btn.textContent = 'Copied!';
+                                setTimeout(() => btn.textContent = 'Copy', 2000);
+                            };
+                            pre.style.position = 'relative';
+                            pre.appendChild(btn);
+                        }
+                    });
+                    
+                    // Highlight code
+                    bubble.querySelectorAll('pre code').forEach(block => {
+                        hljs.highlightElement(block);
+                    });
+                }
+            }
+            
+            // Auto-scroll smoothly for better UX
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Load models
+        async function loadModels() {
+            try {
+                const res = await fetch('/models');
+                const list = await res.json();
+                models = list;
+                modelSelect.innerHTML = '';
+                if (models.length === 0) {
+                    modelSelect.innerHTML = '<option>no models</option>';
+                } else {
+                    models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m;
+                        opt.textContent = m;
+                        modelSelect.appendChild(opt);
+                    });
+                    currentModel = models[0];
+                    modelSelect.value = currentModel;
+                }
+            } catch (e) { 
+                console.warn('no models', e);
+                modelSelect.innerHTML = '<option>Error loading models</option>';
+            }
+        }
+
+        // Load conversations list
+        async function loadConversations() {
+            try {
+                const res = await fetch('/conversations');
+                const files = await res.json();
+                conversationsList = files;
+                
+                historyList.innerHTML = '';
+                
+                for (const filename of files) {
+                    try {
+                        const convRes = await fetch('/load', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({filename})
+                        });
+                        const conv = await convRes.json();
+                        
+                        const item = document.createElement('div');
+                        item.className = 'history-item';
+                        item.dataset.filename = filename;
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'chat-name';
+                        nameSpan.textContent = conv.name || generateChatName(conv.messages || []) || filename.replace(/^conv_|\.json$/g, '').replace(/_/g, ' ');
+                        
+                        const delBtn = document.createElement('button');
+                        delBtn.className = 'delete-single';
+                        delBtn.innerHTML = '<i class="fas fa-times"></i>';
+                        delBtn.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            await deleteConversation(filename);
+                        });
+                        
+                        item.appendChild(nameSpan);
+                        item.appendChild(delBtn);
+                        
+                        item.addEventListener('click', (e) => {
+                            if (!e.target.classList.contains('delete-single') && !e.target.closest('.delete-single')) {
+                                loadConversation(filename);
+                            }
+                        });
+                        
+                        historyList.appendChild(item);
+                    } catch (e) {
+                        // Fallback
+                        const item = document.createElement('div');
+                        item.className = 'history-item';
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'chat-name';
+                        nameSpan.textContent = filename.replace(/^conv_|\.json$/g, '').replace(/_/g, ' ');
+                        
+                        item.appendChild(nameSpan);
+                        historyList.appendChild(item);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load conversations', e);
+            }
+        }
+
+        // Load specific conversation
+        async function loadConversation(filename) {
+            try {
+                const res = await fetch('/load', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({filename})
+                });
+                const conv = await res.json();
+                
+                messages = conv.messages || [];
+                systemPrompt = conv.system || '';
+                temperature = conv.temperature ?? temperature;
+                topP = conv.topP ?? topP;
+                maxTokens = conv.maxTokens ?? maxTokens;
+                
+                // Update UI
+                renderMessages();
+                systemPromptArea.value = systemPrompt;
+                tempSlider.value = temperature;
+                tempValue.textContent = temperature.toFixed(1);
+                topPSlider.value = topP;
+                topPValue.textContent = topP.toFixed(2);
+                maxTokensSelect.value = maxTokens;
+                
+                // Update active state in sidebar
+                document.querySelectorAll('.history-item').forEach(item => {
+                    if (item.dataset.filename === filename) {
+                        item.style.background = 'rgba(70, 100, 200, 0.3)';
+                    } else {
+                        item.style.background = '';
+                    }
+                });
+            } catch (e) {
+                console.error('Failed to load conversation', e);
+            }
+        }
+
+        // Save current conversation
+        async function saveConversation() {
+            if (messages.length === 0) return;
+            
+            const conv = {
+                messages,
+                system: systemPrompt,
+                model: currentModel,
+                temperature,
+                topP,
+                maxTokens,
+                name: generateChatName(messages)
+            };
+            
+            try {
+                await fetch('/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(conv)
+                });
+                loadConversations();
+            } catch (e) {
+                console.error('Failed to save conversation', e);
+            }
+        }
+
+        // Delete conversation
+        async function deleteConversation(filename) {
+            if (!confirm('Delete this conversation?')) return;
+            
+            try {
+                await fetch('/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({filename})
+                });
+                
+                if (document.querySelector('.history-item.active')?.dataset.filename === filename) {
+                    messages = [];
+                    renderMessages();
+                }
+                
+                loadConversations();
+            } catch (e) {
+                console.error('Failed to delete', e);
+            }
+        }
+
+        // Delete all conversations
+        async function deleteAllConversations() {
+            if (!confirm('Delete ALL conversations?')) return;
+            
+            try {
+                await fetch('/delete-all', { method: 'POST' });
+                messages = [];
+                renderMessages();
+                loadConversations();
+            } catch (e) {
+                console.error('Failed to delete all', e);
+            }
+        }
+
+        // Stop generation
+        function stopGeneration() {
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+                isGenerating = false;
+                sendIcon.style.display = 'block';
+                stopIcon.style.display = 'none';
+                sendStopBtn.classList.remove('stop-active');
+                fetch('/stop', { method: 'POST' }).catch(() => {});
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text && uploadedFiles.length === 0) return;
+            if (!currentModel) {
+                alert('No model selected');
+                return;
+            }
+
+            // Add user message
+            messages.push({ role: 'user', content: text });
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            
+            // Add empty assistant message
+            messages.push({ role: 'assistant', content: '' });
+            renderMessages();
+
+            // Start generating
+            isGenerating = true;
+            sendIcon.style.display = 'none';
+            stopIcon.style.display = 'block';
+            sendStopBtn.classList.add('stop-active');
+
+            abortController = new AbortController();
+
+            const payload = {
+                model: currentModel,
+                messages: messages.slice(0, -1),
+                system: systemPrompt,
+                temperature: parseFloat(temperature),
+                top_p: parseFloat(topP),
+                max_tokens: parseInt(maxTokens, 10)
+            };
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: abortController.signal
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    buffer += chunk;
+                    
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                // Done
+                            } else if (data.startsWith('ERROR:')) {
+                                console.error(data);
+                                stopGeneration();
+                            } else {
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    if (parsed.token) {
+                                        updateStreamingContent(parsed.token);
+                                    }
+                                } catch (e) {
+                                    // Ignore parse errors
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Stream error', err);
+                }
+            } finally {
+                isGenerating = false;
+                sendIcon.style.display = 'block';
+                stopIcon.style.display = 'none';
+                sendStopBtn.classList.remove('stop-active');
+                abortController = null;
+                
+                // Auto-save after generation
+                if (messages.length > 0 && messages[messages.length - 1].content) {
+                    saveConversation();
+                }
+            }
+        }
+
+        // Event listeners
+        sendStopBtn.addEventListener('click', () => {
+            if (isGenerating) {
+                stopGeneration();
+            } else {
+                sendMessage();
+            }
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Auto-resize textarea
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Settings
+        tempSlider.addEventListener('input', () => {
+            temperature = parseFloat(tempSlider.value);
+            tempValue.textContent = temperature.toFixed(1);
+            saveSettings();
+        });
+
+        topPSlider.addEventListener('input', () => {
+            topP = parseFloat(topPSlider.value);
+            topPValue.textContent = topP.toFixed(2);
+            saveSettings();
+        });
+
+        maxTokensSelect.addEventListener('change', (e) => {
+            maxTokens = parseInt(e.target.value, 10);
+            saveSettings();
+        });
+
+        systemPromptArea.addEventListener('input', () => {
+            systemPrompt = systemPromptArea.value;
+            saveSettings();
+        });
+
+        // Settings modal
+        settingsBtn.addEventListener('click', () => {
+            systemPromptArea.value = systemPrompt;
+            tempSlider.value = temperature;
+            tempValue.textContent = temperature.toFixed(1);
+            topPSlider.value = topP;
+            topPValue.textContent = topP.toFixed(2);
+            maxTokensSelect.value = maxTokens;
+            settingsModal.classList.add('show');
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.remove('show');
+        });
+
+        // Upload modal
+        document.querySelector('.attach-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            uploadModal.classList.add('show');
+        });
+
+        closeUploadBtn.addEventListener('click', () => {
+            uploadModal.classList.remove('show');
+            filePreviews.innerHTML = '';
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.background = 'rgba(100, 140, 255, 0.2)';
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.background = '';
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.background = '';
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', () => {
+            handleFiles(fileInput.files);
+        });
+
+        async function handleFiles(files) {
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    uploadedFiles.push(data);
+                    
+                    const preview = document.createElement('div');
+                    preview.className = 'preview-item';
+                    if (file.type.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        preview.appendChild(img);
+                    }
+                    preview.appendChild(document.createTextNode(data.original));
+                    filePreviews.appendChild(preview);
+                } catch (e) {
+                    console.error('Upload failed', e);
+                }
+            }
+        }
+
+        // New chat
+        newChatBtn.addEventListener('click', () => {
+            messages = [];
+            renderMessages();
+        });
+
+        // Model change
+        modelSelect.addEventListener('change', () => {
+            currentModel = modelSelect.value;
+        });
+
+        // Delete all
+        deleteAllBtn.addEventListener('click', deleteAllConversations);
+
+        // Sidebar collapse
+        burger.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            
+            // Mobile backdrop
+            if (window.innerWidth <= 700) {
+                if (!sidebar.classList.contains('collapsed')) {
+                    if (!document.getElementById('sidebar-backdrop')) {
+                        const backdrop = document.createElement('div');
+                        backdrop.id = 'sidebar-backdrop';
+                        backdrop.addEventListener('click', () => sidebar.classList.add('collapsed'));
+                        document.querySelector('.app-container').appendChild(backdrop);
+                    }
+                } else {
+                    const backdrop = document.getElementById('sidebar-backdrop');
+                    if (backdrop) backdrop.remove();
+                }
+            }
+        });
+
+        // Close modals when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.classList.remove('show');
+            }
+            if (e.target === uploadModal) {
+                uploadModal.classList.remove('show');
+            }
+        });
+
+        // Ctrl+C to stop
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'c' && isGenerating) {
+                e.preventDefault();
+                stopGeneration();
+            }
+        });
+
+        // Initialize
+        loadSettings();
+        loadModels();
+        loadConversations();
+    })();
+</script>
 </body>
 </html>
