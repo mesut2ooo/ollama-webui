@@ -323,6 +323,11 @@ async function loadConversations() {
 
 // Load specific conversation
 async function loadConversation(filename) {
+    // Stop any ongoing generation first
+    if (isGenerating) {
+        stopGeneration();
+    }
+    
     try {
         const res = await fetch('/load', {
             method: 'POST',
@@ -428,12 +433,21 @@ function stopGeneration() {
     if (abortController) {
         abortController.abort();
         abortController = null;
-        isGenerating = false;
-        sendIcon.style.display = 'block';
-        stopIcon.style.display = 'none';
-        sendStopBtn.classList.remove('stop-active');
-        fetch('/stop', { method: 'POST' }).catch(() => {});
     }
+    
+    // Always clean up UI state
+    isGenerating = false;
+    sendIcon.style.display = 'block';
+    stopIcon.style.display = 'none';
+    sendStopBtn.classList.remove('stop-active');
+    
+    // Remove any empty assistant message if generation was stopped before any content
+    if (messages.length > 0 && messages[messages.length - 1].role === 'assistant' && messages[messages.length - 1].content === '') {
+        messages.pop(); // Remove the empty assistant message
+        renderMessages();
+    }
+    
+    fetch('/stop', { method: 'POST' }).catch(() => {});
 }
 
 // Send message
@@ -650,8 +664,17 @@ async function handleFiles(files) {
 
 // New chat
 newChatBtn.addEventListener('click', () => {
+    // Stop any ongoing generation first
+    if (isGenerating) {
+        stopGeneration();
+    }
     messages = [];
     renderMessages();
+    
+    // Clear active state in sidebar
+    document.querySelectorAll('.history-item').forEach(item => {
+        item.style.background = '';
+    });
 });
 
 // Model change
