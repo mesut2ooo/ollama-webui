@@ -235,24 +235,35 @@ function updateStreamingContent(token) {
     });
 }
 
-// Load models
 async function loadModels() {
     try {
         const res = await fetch('/models');
         const list = await res.json();
         models = list;
         modelSelect.innerHTML = '';
+        
         if (models.length === 0) {
             modelSelect.innerHTML = '<option>no models</option>';
         } else {
+            // Get saved model from localStorage
+            const savedModel = localStorage.getItem('mallamaModel');
+            
             models.forEach(m => {
                 const opt = document.createElement('option');
                 opt.value = m;
                 opt.textContent = m;
                 modelSelect.appendChild(opt);
             });
-            currentModel = models[0];
-            modelSelect.value = currentModel;
+            
+            // Check if saved model exists and is still available
+            if (savedModel && models.includes(savedModel)) {
+                currentModel = savedModel;
+                modelSelect.value = savedModel;
+            } else {
+                // Fallback to first model
+                currentModel = models[0];
+                modelSelect.value = currentModel;
+            }
         }
     } catch (e) { 
         console.warn('no models', e);
@@ -700,6 +711,7 @@ newChatBtn.addEventListener('click', () => {
 // Model change
 modelSelect.addEventListener('change', () => {
     currentModel = modelSelect.value;
+    localStorage.setItem('mallamaModel', currentModel);
 });
 
 // Delete all
