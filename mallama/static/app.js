@@ -368,6 +368,10 @@ async function loadConversation(filename) {
 async function saveConversation() {
     if (messages.length === 0) return;
     
+    // Check if we're currently viewing an existing conversation
+    const activeItem = document.querySelector('.history-item[style*="background"]');
+    let filename = activeItem?.dataset.filename;
+    
     const conv = {
         messages,
         system: systemPrompt,
@@ -379,12 +383,28 @@ async function saveConversation() {
     };
     
     try {
-        await fetch('/save', {
+        let url = '/save';
+        // If we have an existing filename, include it to update instead of create new
+        if (filename) {
+            conv.filename = filename;
+        }
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(conv)
         });
-        loadConversations();
+        
+        const result = await response.json();
+        
+        // Update the active item's filename if this was a new conversation
+        if (!filename && result.filename) {
+            // Find the newly created item in history and mark it as active
+            loadConversations();
+        } else {
+            // Just refresh the list to show updated names
+            loadConversations();
+        }
     } catch (e) {
         console.error('Failed to save conversation', e);
     }
@@ -539,10 +559,10 @@ async function sendMessage() {
         sendStopBtn.classList.remove('stop-active');
         abortController = null;
         
-        // Auto-save after generation
-        if (messages.length > 0 && messages[messages.length - 1].content) {
-            saveConversation();
-        }
+// Auto-save only for new chats (when there were no messages before this exchange)
+if (messages.length <= 2) { // Just user + assistant messages
+    saveConversation();
+}
     }
 }
 
