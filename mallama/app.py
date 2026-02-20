@@ -100,11 +100,17 @@ def chat():
                     if line:
                         try:
                             chunk = json.loads(line)
-                            if 'response' in chunk:
+                            # Check for thinking tokens
+                            if 'thinking' in chunk and chunk['thinking']:
+                                try:
+                                    yield f"data: {json.dumps({'thinking': chunk['thinking']})}\n\n"
+                                except GeneratorExit:
+                                    return
+                            # Check for response tokens
+                            if 'response' in chunk and chunk['response']:
                                 try:
                                     yield f"data: {json.dumps({'token': chunk['response']})}\n\n"
                                 except GeneratorExit:
-                                    # Client disconnected - clean up and exit
                                     return
                             if chunk.get('done', False):
                                 try:
@@ -113,7 +119,7 @@ def chat():
                                     pass
                                 return
                         except:
-                            continue
+                             continue
         except Exception as e:
             try:
                 yield f"data: ERROR: {str(e)}\n\n"

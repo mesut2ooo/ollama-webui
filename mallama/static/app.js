@@ -140,9 +140,24 @@ function renderMessages() {
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
         
-        if (msg.content) {
-            // Use marked for markdown rendering
-            let html = marked.parse(msg.content);
+        if (msg.content || msg.thinking) {
+            let html = '';
+            
+            // Add thinking section if it exists
+            if (msg.thinking && msg.thinking.trim()) {
+                html += `<div class="thinking-block">`;
+                html += `<div class="thinking-header" onclick="this.parentElement.classList.toggle('collapsed')">`;
+                html += `<i class="fas fa-brain"></i> Thinking <span class="toggle-icon">▼</span>`;
+                html += `</div>`;
+                html += `<div class="thinking-content">${marked.parse(msg.thinking)}</div>`;
+                html += `</div>`;
+            }
+            
+            // Add response content
+            if (msg.content) {
+                html += marked.parse(msg.content);
+            }
+            
             bubble.innerHTML = html;
             
             // Add copy buttons to code blocks
@@ -181,7 +196,23 @@ function renderMessages() {
     });
 }
 
-// Update streaming content efficiently
+function updateThinkingContent(token) {
+    if (messages.length === 0) return;
+    
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.role !== 'assistant') return;
+    
+    // Initialize thinking if it doesn't exist
+    if (!lastMsg.thinking) {
+        lastMsg.thinking = '';
+    }
+    
+    lastMsg.thinking += token;
+    
+    // Re-render the complete message with both thinking and response
+    renderLastMessage();
+}
+
 function updateStreamingContent(token) {
     if (messages.length === 0) return;
     
@@ -190,45 +221,67 @@ function updateStreamingContent(token) {
     
     lastMsg.content += token;
     
-    // Update the last message bubble directly
+    // Re-render the complete message with both thinking and response
+    renderLastMessage();
+}
+
+// New function to render just the last message with both thinking and response
+function renderLastMessage() {
     const lastMsgDiv = messagesContainer.lastElementChild;
-    if (lastMsgDiv) {
-        const bubble = lastMsgDiv.querySelector('.bubble');
-        if (bubble) {
-            // Remove typing indicator if present
-            if (bubble.querySelector('.typing-indicator')) {
-                bubble.innerHTML = '';
-            }
-            
-            // Update with new content
-            let html = marked.parse(lastMsg.content);
-            bubble.innerHTML = html;
-            
-            // Add copy buttons
-            bubble.querySelectorAll('pre').forEach(pre => {
-                if (!pre.querySelector('.copy-btn')) {
-                    const btn = document.createElement('button');
-                    btn.className = 'copy-btn';
-                    btn.textContent = 'Copy';
-                    btn.onclick = () => {
-                        const code = pre.querySelector('code') || pre;
-                        navigator.clipboard.writeText(code.innerText || code.textContent);
-                        btn.textContent = 'Copied!';
-                        setTimeout(() => btn.textContent = 'Copy', 2000);
-                    };
-                    pre.style.position = 'relative';
-                    pre.appendChild(btn);
-                }
-            });
-            
-            // Highlight code
-            bubble.querySelectorAll('pre code').forEach(block => {
-                hljs.highlightElement(block);
-            });
-        }
+    if (!lastMsgDiv) return;
+    
+    const lastMsg = messages[messages.length - 1];
+    const bubble = lastMsgDiv.querySelector('.bubble');
+    if (!bubble) return;
+    
+    // Remove typing indicator if present
+    if (bubble.querySelector('.typing-indicator')) {
+        bubble.innerHTML = '';
     }
     
-    // Auto-scroll smoothly for better UX
+    // Build HTML with thinking and response parts
+    let html = '';
+    
+    // Add thinking section if it exists
+    if (lastMsg.thinking && lastMsg.thinking.trim()) {
+        html += `<div class="thinking-block">`;
+        html += `<div class="thinking-header" onclick="this.parentElement.classList.toggle('collapsed')">`;
+        html += `<i class="fas fa-brain"></i> Thinking <span class="toggle-icon">▼</span>`;
+        html += `</div>`;
+        html += `<div class="thinking-content">${marked.parse(lastMsg.thinking)}</div>`;
+        html += `</div>`;
+    }
+    
+    // Add response content
+    if (lastMsg.content) {
+        html += marked.parse(lastMsg.content);
+    }
+    
+    bubble.innerHTML = html;
+    
+    // Add copy buttons to code blocks
+    bubble.querySelectorAll('pre').forEach(pre => {
+        if (!pre.querySelector('.copy-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'copy-btn';
+            btn.textContent = 'Copy';
+            btn.onclick = () => {
+                const code = pre.querySelector('code') || pre;
+                navigator.clipboard.writeText(code.innerText || code.textContent);
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 2000);
+            };
+            pre.style.position = 'relative';
+            pre.appendChild(btn);
+        }
+    });
+    
+    // Highlight code
+    bubble.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+    });
+    
+    // Auto-scroll smoothly
     messagesContainer.scrollTo({
         top: messagesContainer.scrollHeight,
         behavior: 'smooth'
@@ -380,7 +433,7 @@ async function saveConversation() {
     if (messages.length === 0) return;
     
     // Check if we're currently viewing an existing conversation
-    const activeItem = document.querySelector('.history-item[style*="background"]');
+    const activeItem = document.querySelector('.history-item[style*="background"], .history-item.active');
     let filename = activeItem?.dataset.filename;
     
     const conv = {
@@ -397,24 +450,52 @@ async function saveConversation() {
         let url = '/save';
         // If we have an existing filename, include it to update instead of create new
         if (filename) {
-            conv.filename = filename;
+            // For updating existing conversation, we need to send the filename
+            // But the /save endpoint doesn't accept filename in the request body
+            // So we need to use a different approach - DELETE the old one and save new
+            
+            // First, delete the old conversation file
+            await fetch('/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({filename})
+            });
+            
+            // Then save as new (will create with new filename)
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(conv)
+            });
+            
+            const result = await response.json();
+            
+            // Update the active item's dataset with new filename
+            if (activeItem) {
+                activeItem.dataset.filename = result.filename;
+            }
+        } else {
+            // New conversation - just save
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(conv)
+            });
+            
+            const result = await response.json();
         }
         
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(conv)
-        });
+        // Refresh the history list
+        await loadConversations();
         
-        const result = await response.json();
-        
-        // Update the active item's filename if this was a new conversation
-        if (!filename && result.filename) {
-            // Find the newly created item in history and mark it as active
-            loadConversations();
-        } else {
-            // Just refresh the list to show updated names
-            loadConversations();
+        // Re-apply active state to the correct item
+        if (filename || activeItem) {
+            setTimeout(() => {
+                const newActiveItem = document.querySelector(`.history-item[data-filename="${filename || activeItem?.dataset.filename}"]`);
+                if (newActiveItem) {
+                    newActiveItem.style.background = 'rgba(70, 100, 200, 0.3)';
+                }
+            }, 100);
         }
     } catch (e) {
         console.error('Failed to save conversation', e);
@@ -549,6 +630,9 @@ async function sendMessage() {
                     } else {
                         try {
                             const parsed = JSON.parse(data);
+                            if (parsed.thinking) {
+                                updateThinkingContent(parsed.thinking);
+                            }
                             if (parsed.token) {
                                 updateStreamingContent(parsed.token);
                             }
@@ -570,10 +654,8 @@ async function sendMessage() {
         sendStopBtn.classList.remove('stop-active');
         abortController = null;
         
-// Auto-save only for new chats (when there were no messages before this exchange)
-if (messages.length <= 2) { // Just user + assistant messages
-    saveConversation();
-}
+        // Auto-save after every exchange
+        saveConversation();
     }
 }
 

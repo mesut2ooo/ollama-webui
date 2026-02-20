@@ -646,6 +646,80 @@ body {
     background: rgba(255,255,255,0.15);
 }
 
+/* Thinking block styles */
+.thinking-block {
+    margin-bottom: 16px;
+    border-left: 3px solid #7b9cff;
+    background: rgba(30, 40, 60, 0.4);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.thinking-block.collapsed .thinking-content {
+    display: none;
+}
+
+.thinking-block.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.thinking-header {
+    padding: 10px 16px;
+    background: rgba(50, 70, 120, 0.3);
+    color: #b0c6ff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+}
+
+.thinking-header:hover {
+    background: rgba(70, 100, 180, 0.4);
+}
+
+.thinking-header i {
+    font-size: 1rem;
+    color: #7b9cff;
+}
+
+.toggle-icon {
+    margin-left: auto;
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+}
+
+.thinking-content {
+    padding: 16px;
+    font-size: 0.95rem;
+    color: #d0dcff;
+    background: rgba(20, 30, 45, 0.6);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.thinking-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Style for thinking text to make it slightly dimmer */
+.thinking-content {
+    opacity: 0.9;
+    font-style: italic;
+}
+
+/* Add a subtle pulse animation when thinking is active */
+.thinking-header i {
+    animation: softPulse 2s infinite;
+}
+
+@keyframes softPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
 /* mobile adjustments */
 @media (max-width: 700px) {
     body {
